@@ -440,6 +440,48 @@ class ILS2:
 
         return time.time() - start, current_solution, self.perturbation_count
 
+class Natura_local_search:
+    def __init__(self,cities,file):
+        self.cities = cities
+        self.local_search = Steepest(self.cities)
+        self.perturbation_count = 0
+        self.time_limit = 0
+        if file == 'kroa':
+            self.time_limit = 357.370771
+        elif file == 'krob':
+            self.time_limit = 358.975393
+
+    def __call__(self):
+        start = time.time()
+        #wygeneruj poczatkowa populacje - DONE
+        solutions = list(map(random_cycle, [(cities, i) for i in range(20)]))
+        _, population = zip(*list(map(Steepest(self.cities), solutions)))
+        while time.time() - start < self.time_limit:
+            #Wylosuj dwa różne rozwiązania (rodziców) stosując rozkład równomierny - DONE
+            parents = random.sample(population, k = 2)
+            #Skonstruuj rozwiązanie potomne y poprzez rekombinację rodziców - WIP
+            child = self.recombine(parents) #niezrobiona
+            #y := Lokalne przeszukiwanie (y) (opcjonalnie) - DONE
+            _, child = self.local_search(child)
+            #jeżeli y jest lepsze od najgorszego rozwiązania w populacji i (wystarczająco) różne od wszystkich rozwiązań w populacji - WIP
+            new_scores = [score(self.cities, x) for x in population]
+            worst_idx = np.argmax(new_scores)
+            if score(self.cities, child) < new_scores[worst_idx]: #WIP
+                #Dodaj y do populacji i usuń najgorsze rozwiązanie - DONE
+                population.pop(worst_idx)
+                population.append(child)
+
+            self.perturbation_count += 1
+
+        new_scores = [score(self.cities, x) for x in new_solutions]
+        best_idx = np.argmin(new_scores)
+        best = new_solutions[best_idx]
+        
+        return time.time() - start, best, self.perturbation_count
+    
+    def recombine(self,parents):
+        pass
+
 score_results = []
 time_results = []
 perturbation_results = []
