@@ -153,6 +153,35 @@ def regret_destroy_fix(tours,remove_count):
             unvisited.remove(best_city)
     return [tours[0],tours[1]]
 
+def regret_fix(tours,unvisited):
+
+    while len(unvisited) > 0:
+        tour = tours[0] if len(tours[0]) < len(tours[1]) else tours[1]
+        regrets = []
+        if len(unvisited) == 1:
+            regrets = [(0,unvisited[0])]
+        else:
+            for city in unvisited:
+                distances = [cities[tour[i]][city] + cities[city][tour[i+1]] - cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
+                distances.append(cities[tour[0]][city] + cities[city][tour[-1]] - cities[tour[-1]][tour[0]])
+                distances.sort()
+                regret = distances[1] - distances[0]
+                regret -= 0.37 * distances[0]
+                regrets.append((regret, city))
+            regrets.sort(reverse=True)
+        best_city = regrets[0][1]
+        tour_distances = [cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
+        best_increase = float('inf')
+        best_index = -1
+        for i in range(len(tour_distances)):
+            increase = cities[best_city][tour[i]] + cities[best_city][tour[i+1]] - tour_distances[i]
+            if increase < best_increase:
+                best_increase = increase
+                best_index = i + 1
+        tour.insert(best_index, best_city)
+        unvisited.remove(best_city)
+    return [tours[0],tours[1]]
+
 class Steepest(object):
     def __init__(self, cities):
         self.cities = cities
@@ -446,16 +475,18 @@ class Natura_local_search:
         self.local_search = Steepest(self.cities)
         self.perturbation_count = 0
         self.time_limit = 0
+        self.score_threshold = 300
         if file == 'kroa':
             self.time_limit = 357.370771
         elif file == 'krob':
             self.time_limit = 358.975393
 
-    def __call__(self):
+    def __call__(self,paths):
         start = time.time()
         #wygeneruj poczatkowa populacje - DONE
         solutions = list(map(random_cycle, [(cities, i) for i in range(20)]))
         _, population = zip(*list(map(Steepest(self.cities), solutions)))
+        population = list(population)
         while time.time() - start < self.time_limit:
             #Wylosuj dwa różne rozwiązania (rodziców) stosując rozkład równomierny - DONE
             parents = random.sample(population, k = 2)
@@ -463,24 +494,72 @@ class Natura_local_search:
             child = self.recombine(parents) #niezrobiona
             #y := Lokalne przeszukiwanie (y) (opcjonalnie) - DONE
             _, child = self.local_search(child)
-            #jeżeli y jest lepsze od najgorszego rozwiązania w populacji i (wystarczająco) różne od wszystkich rozwiązań w populacji - WIP
+            #jeżeli y jest lepsze od najgorszego rozwiązania w populacji i (wystarczająco) różne od wszystkich rozwiązań w populacji - DONE
+            different = True
+            for solution in population:
+                if abs(score(self.cities, solution) - score(self.cities, child)) < self.score_threshold:
+                    different = False
+                    break
             new_scores = [score(self.cities, x) for x in population]
             worst_idx = np.argmax(new_scores)
-            if score(self.cities, child) < new_scores[worst_idx]: #WIP
+            if score(self.cities, child) < new_scores[worst_idx] and different: #DONE
                 #Dodaj y do populacji i usuń najgorsze rozwiązanie - DONE
                 population.pop(worst_idx)
                 population.append(child)
 
             self.perturbation_count += 1
 
-        new_scores = [score(self.cities, x) for x in new_solutions]
+        new_scores = [score(self.cities, x) for x in population]
         best_idx = np.argmin(new_scores)
-        best = new_solutions[best_idx]
+        best = population[best_idx]
         
         return time.time() - start, best, self.perturbation_count
     
     def recombine(self,parents):
-        pass
+        sol1, sol2 = deepcopy(parents[0]), deepcopy(parents[1])
+        
+        remaining = []
+        for cyc1 in sol1:
+            n = len(cyc1)
+            if n == 1:
+                continue
+            for i in range(n):
+                p, q = cyc1[i], cyc1[(i+1)%n]
+                if p == -1 or q == -1 or p == q:
+                    continue
+                found = False
+                for cyc2 in sol2:
+                    m = len(cyc2)
+                    for j in range(m):
+                        u, v = cyc2[j], cyc2[(j+1)%m]
+                        if (p == u and q == v) or (p == v and q == u):
+                            found = True
+                            break
+                    if found:
+                        break
+                        
+                if not found:
+                    remaining.append(cyc1[i])
+                    remaining.append(cyc1[(i+1)%n])
+                    cyc1[i] = -1
+                    cyc1[(i+1)%n] = -1
+                    
+            for i in range(1, n):
+                x, y, z = cyc1[(i-1)%n], cyc1[i], cyc1[(i+1)%n]
+                if x == z == -1 and y != -1:
+                    remaining.append(y)
+                    cyc1[i] = -1
+                    
+            for i in range(1, n):
+                x = cyc1[i]
+                if x != -1 and np.random.rand() < 0.2:
+                    remaining.append(x)
+                    cyc1[i] = -1
+                    
+        a = [x for x in sol1[0] if x != -1]
+        b = [x for x in sol1[1] if x != -1]
+        assert len(a) + len(b) + len(remaining) == 200
+        return regret_fix([a, b], remaining)
 
 score_results = []
 time_results = []
@@ -520,10 +599,10 @@ for file in ['kroa','krob']:
     coords = pd.read_csv(file, sep=' ')
     positions=np.array([coords['x'], coords['y']]).T
     cities = np.round(pairwise_distances(np.array(positions)))
-    variants = [ILS1(cities,file),ILS2_local_search(cities,file),ILS2(cities,file)]
+    variants = [Natura_local_search(cities,file)]
     #variants = [MSLS(cities),ILS1(cities),ILS2(cities)]
     for solve in [random_cycle]:
-        solutions = list(map(solve, [(cities, i) for i in range(10)]))
+        solutions = list(map(solve, [(cities, i) for i in range(1)]))
         scores = [score(cities, x) for x in solutions]
         score_results.append(dict(file=file, function=solve.__name__, search="none", min=int(min(scores)), mean=int(np.mean(scores)), max=int(max(scores))))
         best_idx = np.argmin(scores)
