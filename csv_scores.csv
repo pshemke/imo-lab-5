@@ -1,5 +1,5 @@
 file,function,search,min,mean,max
-kroa,random_cycle,none,332381,332381,332381
-kroa,random_cycle,Natura_local_search,32460,32460,32460
-krob,random_cycle,none,335228,335228,335228
-krob,random_cycle,Natura_local_search,31991,31991,31991
+kroa,random_cycle,none,331696,331696,331696
+kroa,random_cycle,Evolutionary,32270,32270,32270
+krob,random_cycle,none,329501,329501,329501
+krob,random_cycle,Evolutionary,35645,35645,35645

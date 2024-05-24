@@ -160,6 +160,15 @@ def regret_fix(tours,unvisited):
         regrets = []
         if len(unvisited) == 1:
             regrets = [(0,unvisited[0])]
+        if len(tour) == 0:
+            start_idx = random.sample(unvisited, k= 1)
+            tour = [unvisited.pop(start_idx)]
+        if len(tour) == 1:
+            nearest_to_first_1 = [cities[tour[0]][j] for j in unvisited]
+            tour.append(unvisited.pop(np.argmin(nearest_to_first_1)))
+        if len(tour) == 2:
+            nearest_to_tour_1 = [cities[tour[0]][j] + cities[tour[1]][j] for j in unvisited]
+            tour.append(unvisited.pop(np.argmin(nearest_to_tour_1)))
         else:
             for city in unvisited:
                 distances = [cities[tour[i]][city] + cities[city][tour[i+1]] - cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
@@ -469,7 +478,7 @@ class ILS2:
 
         return time.time() - start, current_solution, self.perturbation_count
 
-class Natura_local_search:
+class Evolutionary_local_search:
     def __init__(self,cities,file):
         self.cities = cities
         self.local_search = Steepest(self.cities)
@@ -494,6 +503,98 @@ class Natura_local_search:
             child = self.recombine(parents) #niezrobiona
             #y := Lokalne przeszukiwanie (y) (opcjonalnie) - DONE
             _, child = self.local_search(child)
+            #jeżeli y jest lepsze od najgorszego rozwiązania w populacji i (wystarczająco) różne od wszystkich rozwiązań w populacji - DONE
+            different = True
+            for solution in population:
+                if abs(score(self.cities, solution) - score(self.cities, child)) < self.score_threshold:
+                    different = False
+                    break
+            new_scores = [score(self.cities, x) for x in population]
+            worst_idx = np.argmax(new_scores)
+            if score(self.cities, child) < new_scores[worst_idx] and different: #DONE
+                #Dodaj y do populacji i usuń najgorsze rozwiązanie - DONE
+                population.pop(worst_idx)
+                population.append(child)
+
+            self.perturbation_count += 1
+
+        new_scores = [score(self.cities, x) for x in population]
+        best_idx = np.argmin(new_scores)
+        best = population[best_idx]
+        
+        return time.time() - start, best, self.perturbation_count
+    
+    def recombine(self,parents):
+        sol1, sol2 = deepcopy(parents[0]), deepcopy(parents[1])
+        
+        remaining = []
+        for cyc1 in sol1:
+            n = len(cyc1)
+            if n == 1:
+                continue
+            for i in range(n):
+                p, q = cyc1[i], cyc1[(i+1)%n]
+                if p == -1 or q == -1 or p == q:
+                    continue
+                found = False
+                for cyc2 in sol2:
+                    m = len(cyc2)
+                    for j in range(m):
+                        u, v = cyc2[j], cyc2[(j+1)%m]
+                        if (p == u and q == v) or (p == v and q == u):
+                            found = True
+                            break
+                    if found:
+                        break
+                        
+                if not found:
+                    remaining.append(cyc1[i])
+                    remaining.append(cyc1[(i+1)%n])
+                    cyc1[i] = -1
+                    cyc1[(i+1)%n] = -1
+                    
+            for i in range(1, n):
+                x, y, z = cyc1[(i-1)%n], cyc1[i], cyc1[(i+1)%n]
+                if x == z == -1 and y != -1:
+                    remaining.append(y)
+                    cyc1[i] = -1
+                    
+            for i in range(1, n):
+                x = cyc1[i]
+                if x != -1 and np.random.rand() < 0.2:
+                    remaining.append(x)
+                    cyc1[i] = -1
+                    
+        a = [x for x in sol1[0] if x != -1]
+        b = [x for x in sol1[1] if x != -1]
+        assert len(a) + len(b) + len(remaining) == 200
+        return regret_fix([a, b], remaining)
+    
+class Evolutionary:
+    def __init__(self,cities,file):
+        self.cities = cities
+        self.local_search = Steepest(self.cities)
+        self.perturbation_count = 0
+        self.time_limit = 0
+        self.score_threshold = 300
+        if file == 'kroa':
+            self.time_limit = 357.370771
+        elif file == 'krob':
+            self.time_limit = 358.975393
+
+    def __call__(self,paths):
+        start = time.time()
+        #wygeneruj poczatkowa populacje - DONE
+        solutions = list(map(random_cycle, [(cities, i) for i in range(20)]))
+        _, population = zip(*list(map(Steepest(self.cities), solutions)))
+        population = list(population)
+        while time.time() - start < self.time_limit:
+            #Wylosuj dwa różne rozwiązania (rodziców) stosując rozkład równomierny - DONE
+            parents = random.sample(population, k = 2)
+            #Skonstruuj rozwiązanie potomne y poprzez rekombinację rodziców - WIP
+            child = self.recombine(parents) #niezrobiona
+            #y := Lokalne przeszukiwanie (y) (opcjonalnie) - DONE
+            #_, child = self.local_search(child)
             #jeżeli y jest lepsze od najgorszego rozwiązania w populacji i (wystarczająco) różne od wszystkich rozwiązań w populacji - DONE
             different = True
             for solution in population:
@@ -599,7 +700,7 @@ for file in ['kroa','krob']:
     coords = pd.read_csv(file, sep=' ')
     positions=np.array([coords['x'], coords['y']]).T
     cities = np.round(pairwise_distances(np.array(positions)))
-    variants = [Natura_local_search(cities,file)]
+    variants = [Evolutionary(cities,file)]
     #variants = [MSLS(cities),ILS1(cities),ILS2(cities)]
     for solve in [random_cycle]:
         solutions = list(map(solve, [(cities, i) for i in range(1)]))
