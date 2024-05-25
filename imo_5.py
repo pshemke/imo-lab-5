@@ -160,7 +160,7 @@ def regret_fix(tours,unvisited):
         regrets = []
         if len(tour) == 0:
             start_idx = random.sample(unvisited, k= 1)
-            tour = [unvisited.pop(start_idx[0])]
+            tour = [unvisited.pop(0)]
         if len(tour) == 1:
             nearest_to_first_1 = [cities[tour[0]][j] for j in unvisited]
             tour.append(unvisited.pop(np.argmin(nearest_to_first_1)))
