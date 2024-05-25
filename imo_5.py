@@ -158,11 +158,9 @@ def regret_fix(tours,unvisited):
     while len(unvisited) > 0:
         tour = tours[0] if len(tours[0]) < len(tours[1]) else tours[1]
         regrets = []
-        if len(unvisited) == 1:
-            regrets = [(0,unvisited[0])]
         if len(tour) == 0:
             start_idx = random.sample(unvisited, k= 1)
-            tour = [unvisited.pop(start_idx)]
+            tour = [unvisited.pop(start_idx[0])]
         if len(tour) == 1:
             nearest_to_first_1 = [cities[tour[0]][j] for j in unvisited]
             tour.append(unvisited.pop(np.argmin(nearest_to_first_1)))
@@ -170,25 +168,28 @@ def regret_fix(tours,unvisited):
             nearest_to_tour_1 = [cities[tour[0]][j] + cities[tour[1]][j] for j in unvisited]
             tour.append(unvisited.pop(np.argmin(nearest_to_tour_1)))
         else:
-            for city in unvisited:
-                distances = [cities[tour[i]][city] + cities[city][tour[i+1]] - cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
-                distances.append(cities[tour[0]][city] + cities[city][tour[-1]] - cities[tour[-1]][tour[0]])
-                distances.sort()
-                regret = distances[1] - distances[0]
-                regret -= 0.37 * distances[0]
-                regrets.append((regret, city))
+            if len(unvisited) == 1:
+                regrets = [(0,unvisited[0])]
+            else:
+                for city in unvisited:
+                    distances = [cities[tour[i]][city] + cities[city][tour[i+1]] - cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
+                    distances.append(cities[tour[0]][city] + cities[city][tour[-1]] - cities[tour[-1]][tour[0]])
+                    distances.sort()
+                    regret = distances[1] - distances[0]
+                    regret -= 0.37 * distances[0]
+                    regrets.append((regret, city))
             regrets.sort(reverse=True)
-        best_city = regrets[0][1]
-        tour_distances = [cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
-        best_increase = float('inf')
-        best_index = -1
-        for i in range(len(tour_distances)):
-            increase = cities[best_city][tour[i]] + cities[best_city][tour[i+1]] - tour_distances[i]
-            if increase < best_increase:
-                best_increase = increase
-                best_index = i + 1
-        tour.insert(best_index, best_city)
-        unvisited.remove(best_city)
+            best_city = regrets[0][1]
+            tour_distances = [cities[tour[i]][tour[i+1]] for i in range(len(tour)-1)]
+            best_increase = float('inf')
+            best_index = -1
+            for i in range(len(tour_distances)):
+                increase = cities[best_city][tour[i]] + cities[best_city][tour[i+1]] - tour_distances[i]
+                if increase < best_increase:
+                    best_increase = increase
+                    best_index = i + 1
+            tour.insert(best_index, best_city)
+            unvisited.remove(best_city)
     return [tours[0],tours[1]]
 
 class Steepest(object):
@@ -700,10 +701,10 @@ for file in ['kroa','krob']:
     coords = pd.read_csv(file, sep=' ')
     positions=np.array([coords['x'], coords['y']]).T
     cities = np.round(pairwise_distances(np.array(positions)))
-    variants = [Evolutionary(cities,file)]
+    variants = [Evolutionary(cities,file),Evolutionary_local_search(cities,file)]
     #variants = [MSLS(cities),ILS1(cities),ILS2(cities)]
     for solve in [random_cycle]:
-        solutions = list(map(solve, [(cities, i) for i in range(1)]))
+        solutions = list(map(solve, [(cities, i) for i in range(10)]))
         scores = [score(cities, x) for x in solutions]
         score_results.append(dict(file=file, function=solve.__name__, search="none", min=int(min(scores)), mean=int(np.mean(scores)), max=int(max(scores))))
         best_idx = np.argmin(scores)
