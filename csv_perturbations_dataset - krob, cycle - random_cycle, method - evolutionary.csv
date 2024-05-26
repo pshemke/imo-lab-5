@@ -2,4 +2,3 @@ file,function,search,min,mean,max
 kroa,random_cycle,Evolutionary,370.0,1985.1,3584.0
 kroa,random_cycle,Evolutionary_local_search,105.0,567.8,1030.0
 krob,random_cycle,Evolutionary,343.0,1930.0,3512.0
-krob,random_cycle,Evolutionary_local_search,105.0,579.7,1048.0

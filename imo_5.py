@@ -162,11 +162,19 @@ def regret_fix(tours,unvisited):
             start_idx = random.sample(unvisited, k= 1)
             tour = [unvisited.pop(0)]
         if len(tour) == 1:
-            nearest_to_first_1 = [cities[tour[0]][j] for j in unvisited]
-            tour.append(unvisited.pop(np.argmin(nearest_to_first_1)))
+            try:
+                nearest_to_first_1 = [cities[tour[0]][j] for j in unvisited]
+                tour.append(unvisited.pop(np.argmin(nearest_to_first_1)))
+            except:
+                print('coś się pierdoli')
+                continue
         if len(tour) == 2:
-            nearest_to_tour_1 = [cities[tour[0]][j] + cities[tour[1]][j] for j in unvisited]
-            tour.append(unvisited.pop(np.argmin(nearest_to_tour_1)))
+            try:
+                nearest_to_tour_1 = [cities[tour[0]][j] + cities[tour[1]][j] for j in unvisited]
+                tour.append(unvisited.pop(np.argmin(nearest_to_tour_1)))
+            except:
+                print('coś się pierdoli')
+                continue
         else:
             if len(unvisited) == 1:
                 regrets = [(0,unvisited[0])]
@@ -599,9 +607,13 @@ class Evolutionary:
             #jeżeli y jest lepsze od najgorszego rozwiązania w populacji i (wystarczająco) różne od wszystkich rozwiązań w populacji - DONE
             different = True
             for solution in population:
-                if abs(score(self.cities, solution) - score(self.cities, child)) < self.score_threshold:
-                    different = False
-                    break
+                try:
+                    if abs(score(self.cities, solution) - score(self.cities, child)) < self.score_threshold:
+                        different = False
+                        break
+                except:
+                    print('error')
+                    continue
             new_scores = [score(self.cities, x) for x in population]
             worst_idx = np.argmax(new_scores)
             if score(self.cities, child) < new_scores[worst_idx] and different: #DONE
@@ -718,6 +730,15 @@ for file in ['kroa','krob']:
             score_results.append(dict(file=file, function=solve.__name__, search=type(variant).__name__, min=int(min(new_scores)), mean=int(np.mean(new_scores)), max=int(max(new_scores))))
             time_results.append(dict(file=file, function=solve.__name__, search=type(variant).__name__, min=float(min(times)), mean=float(np.mean(times)), max=float(max(times))))
             perturbation_results.append(dict(file=file, function=solve.__name__, search=type(variant).__name__, min=float(min(perturbation)), mean=float(np.mean(perturbation)), max=float(max(perturbation))))
+            print(score_results)
+            print(time_results)
+            print(perturbation_results)            
+            scores_partial = pd.DataFrame(score_results)
+            perturbations_partial = pd.DataFrame(perturbation_results)
+            times_partial = pd.DataFrame(time_results)
+            scores_partial.to_csv(f'csv_scores_dataset - {file}, cycle - {solve.__name__}, method - {(type(variant).__name__).lower()}.csv', index=False)  
+            times_partial.to_csv(f'csv_times_dataset - {file}, cycle - {solve.__name__}, method - {(type(variant).__name__).lower()}.csv', index=False) 
+            perturbations_partial.to_csv(f'csv_perturbations_dataset - {file}, cycle - {solve.__name__}, method - {(type(variant).__name__).lower()}.csv', index=False)             
 scores = pd.DataFrame(score_results)
 perturbations = pd.DataFrame(perturbation_results)
 times = pd.DataFrame(time_results)
