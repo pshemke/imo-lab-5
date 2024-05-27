@@ -166,14 +166,12 @@ def regret_fix(tours,unvisited):
                 nearest_to_first_1 = [cities[tour[0]][j] for j in unvisited]
                 tour.append(unvisited.pop(np.argmin(nearest_to_first_1)))
             except:
-                print('coś się pierdoli')
                 continue
         if len(tour) == 2:
             try:
                 nearest_to_tour_1 = [cities[tour[0]][j] + cities[tour[1]][j] for j in unvisited]
                 tour.append(unvisited.pop(np.argmin(nearest_to_tour_1)))
             except:
-                print('coś się pierdoli')
                 continue
         else:
             if len(unvisited) == 1:
